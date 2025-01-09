@@ -10,6 +10,37 @@ library(forecast)
 library(HMMpa)
 
 
+#----------  Set up theme
+#===============================================================================
+theme_minimal_adjstd <- function(...) {
+  theme_minimal() +
+    theme(
+      plot.title = element_text(color = "gray0",  face = "bold", hjust = 0.5, size = 8),
+      axis.line = element_line(linetype = "solid"),
+      axis.text.x = element_text(color = "gray0"),
+      axis.text.y = element_text(color = "gray0"),
+      axis.title.x = element_text(color = "gray0", size = 6),
+      axis.title.y = element_text(color = "gray0", size = 6),
+      axis.ticks.y = element_line(),
+      axis.ticks.x = element_line(),            panel.grid.minor = element_blank(),
+      panel.grid.major = element_blank(),
+      plot.background = element_blank(),
+      panel.background = element_rect(fill = "white", color = NA),
+      legend.title = element_text(face = "bold"),
+      legend.direction = "horizontal",
+      legend.position = "topright",
+      legend.background = element_rect(fill = NA, color = NA),
+      # legend.text = element_text(size = 14),
+      legend.key.width = unit(2, "line"),
+      strip.text = element_text(face = "bold"),
+      strip.background = element_rect(fill = NA, color = NA)
+    )
+}
+
+?element_text
+
+#===============================================================================
+
 hmmdata <- read.csv('z1_hr_mean.csv')
 hmmdata <- hmmdata[order(hmmdata$seq),]
 
@@ -83,51 +114,93 @@ dev.off()
 
 ## analysis  ----------------------------------------------
 
-# func_transitMat <- function() {
-#   mat <- matrix(0.01, nrow = n, ncol = n)
-#   diag(mat())
-# }
-# 
-# func_delta <- function() {
-#   if(n==1) return (1)
-#   values <- rep(1/n, n)
-#   rounded <- round(values, 3)
-#   rounded[n] <- 1 - sum(rounded[-n])
-#   
-#   return (rounded)
-# }
-# 
-# 
+gen_Tmatrix <- function(n) {
+  # Create an n x n matrix filled with 0.01
+  mat <- matrix(0.01, nrow = n, ncol = n)
+  # Adjust the diagonal elements so that each row sums to 1
+  diag(mat) <- 1 - 0.01 * (n - 1)
+  
+  return(mat)
+}
+
+# Test the function
+print(gen_Tmatrix(3))
+
+func_delta <- function(n) {
+  if(n==1) return (1)
+  values <- rep(1/n, n)
+  rounded <- round(values, 3)
+  rounded[n] <- 1 - sum(rounded[-n])
+
+  return (rounded)
+}
+func_delta(6)
+
 # func_pm <- function(n) {
 #   set.seed(3745)
+#   mean_power <- 
 #   probs <- runif(n)
 #   return(list(prob = probs))}
 
+emission_means <- seq(min(mean_power), max(mean_power), length.out = num_states)
+emission_sd <- rep(sd(mean_power), num_states)
 
+hmmbs2 <- dthmm(hmmdata$mean_power, Pi=gen_Tmatrix(15), delta=func_delta(15),
+                "norm", pm = list(mean = emission_means, sd = emission_sd))
+
+summary(hmmbs2)
+try <- BaumWelch(hmmbs2)
+
+##############################################################################
 #### ----- alternative way -----------------------------
 
 mean_power <- hmmdata$mean_power
 
 # Define initial model parameters
-num_states <- 2  # Change the number of states to experiment
-init_prob <- rep(1 / num_states, num_states)  # Equal probability for initial states
-transition_matrix <- matrix(1 / num_states, nrow = num_states, ncol = num_states)  # Equal probabilities for transitions
-emission_means <- seq(min(mean_power), max(mean_power), length.out = num_states)
-emission_sd <- rep(sd(mean_power), num_states)
+num_states <- 15  # Change the number of states to experiment
+#init_prob <- rep(1 / num_states, num_states)  # Equal probability for initial states
+gen_Tmatrix <- function(n) {
+  mat <- matrix(0.01, nrow = n, ncol = n)
+  diag(mat) <- 1 - 0.01 * (n - 1)
+  return(mat)
+}
+func_delta <- function(n) {
+  if(n==1) return (1)
+  values <- rep(1/n, n)
+  rounded <- round(values, 3)
+  rounded[n] <- 1 - sum(rounded[-n])
+  
+  return (rounded)
+}
+
+#transition_matrix <- matrix(1 / num_states, nrow = num_states, ncol = num_states)  # Equal probabilities for transitions
+#emission_means <- seq(min(mean_power), max(mean_power), length.out = num_states)
+#emission_sd <- rep(sd(mean_power), num_states)
+emission_means <- runif(num_states, min = min(mean_power), max = max(mean_power))
+emission_sd <- runif(num_states, min = 0.7*sd(mean_power), max = 0.9*sd(mean_power))
+
+gen_emisparams <- function(data, n) {
+  set.seed(374)
+  # Generate random means and standard deviations
+  emission_means <- runif(n, min = min(data), max = max(data))
+  emission_sd <- runif(n, min = 0.7 * sd(mean_power), max = 0.9 * sd(data))
+  return(list(mean = emission_means, sd = emission_sd))
+}
 
 # Define the HMM
+n = 20
 hmm_model1 <- dthmm(
   x = mean_power,
-  Pi = transition_matrix,
-  delta = init_prob,
-  pm = list(mean = emission_means, sd = emission_sd),
+  Pi = gen_Tmatrix(n),
+  delta = func_delta(n),
+  pm = gen_emisparams(hmmdata$mean_power, n), #list(mean = emission_means, sd = emission_sd),
   distn = "norm"
 )
 
-
+summary(hmm_model1)
 # Fit the HMM using Baum-Welch algorithm
-fitted_hmm <- BaumWelch(hmm_model1)
-
+fitted_hmm <- BaumWelch(hmm_model1, control = bwcontrol(maxiter = 1000))
+summary(fitted_hmm)
 
 # Define a function to fit HMM and evaluate
 fit_hmm1 <- function(data, num_states) {
@@ -151,10 +224,11 @@ fit_hmm1 <- function(data, num_states) {
 
 m=15
 hmm_BW_n <- fit_hmm1(mean_power, num_states=m)
+summary(hmm_BW_n)
 
 AIC_HMM(logL = hmm_BW_n$LL, m=m, k=2)
-
 BIC_HMM(size = nrow(hmmdata), m=20, k=2, hmm_BW_n$LL)
+
 Viterbi(hmm_BW_n) # State decoding
 fit15res <- residuals(hmm_BW_n) # Residuals
 
@@ -172,7 +246,7 @@ fit15res_df1 <- data.frame(state = rep(paste0(15, " States"), each = 1416),
     geom_hline(yintercept = -2.58, linetype="solid", color="gray70") +
     geom_point(size = 1.5, alpha = 0.6, color = "gray50") +
     coord_cartesian(ylim = c(-4, 4)) +
-    theme_minimal() +
+    theme_minimal_adjstd() +
     labs(x = NULL, y = NULL, title = NULL))
 
 (diag_st15_2 <- fit15res_df1 %>%
@@ -181,7 +255,7 @@ fit15res_df1 <- data.frame(state = rep(paste0(15, " States"), each = 1416),
     stat_function(fun = dnorm, 
                   args = list(mean = mean(fit15res_df1$resid), 
                               sd = sd(fit15res_df1$resid)), linewidth = 1) +
-    theme_minimal() +
+    theme_minimal_adjstd() +
     labs(x = NULL, y = NULL))
 
 (diag_st15_3 <-fit15res_df1 %>%
@@ -189,27 +263,40 @@ fit15res_df1 <- data.frame(state = rep(paste0(15, " States"), each = 1416),
     stat_qq() +
     geom_abline() +
     coord_cartesian(ylim = c(-4, 4), xlim = c(-4, 4)) +
-    theme_minimal() +
+    theme_minimal_adjstd() +
     labs(x = NULL, y = NULL, title = NULL))
 
 
-#######---------consider hour column  --------------------------------------
+#######--------------------------------
+fit_hmm_with_random_params <- function(data, num_states, mean_range = c(0, 1000), sd_range = c(1, 10)) {
+  
+  # Define initial model parameters
+  init_prob <- rep(1 / num_states, num_states)  # Equal probability for initial states
+  transition_matrix <- matrix(1 / num_states, nrow = num_states, ncol = num_states)  # Equal probabilities for transitions
+  
+  # Generate random means and standard deviations
+  emission_means <- rnorm(num_states, mean = mean(mean_range), sd = diff(mean_range) / 4)
+  emission_means <- sort(emission_means)
+  
+  emission_sd <- runif(num_states, min = sd_range[1], max = sd_range[2])
+  
+  # Define the HMM
+  hmm_model <- dthmm(
+    x = mean_power,
+    Pi = transition_matrix,
+    delta = init_prob,
+    pm = list(mean = emission_means, sd = emission_sd),
+    distn = "norm"
+  )
+  
+  # Fit the HMM using the Baum-Welch algorithm
+  fitted_hmm <- BaumWelch(hmm_model)
+  
+  # Return the fitted HMM and emission parameters
+  return(list(fitted_hmm = fitted_hmm, means = emission_means, sds = emission_sd))
+}
 
-hmmdata$hour_sin <- sin(2 * pi * hmmdata$hr / 24)
-hmmdata$hour_cos <- cos(2 * pi * hmmdata$hr / 24)
+m=5
+fit_hmm_with_random_params(data=mean_power, num_states=m)
 
-observations <- cbind(mean_power, hmmdata$hour_sin, hmmdata$hour_cos)
-
-hmm_model2 <- dthmm(
-  x = observations,
-  Pi = transition_matrix,
-  delta = init_prob,
-  pm = list(mean = list(c(mean(mean_power), 0, 0)), cov = diag(c(var(mean_power), 0.1, 0.1))),
-  distn = "mvnorm",
-  discrete = TRUE
-)
-
-fitted_hmm2 <- BaumWelch(hmm_model)
-AIC_HMM(logL = fitted_hmm$LL, m=2, k=1)
-BIC_HMM(size = nrow(hmmdata), m = 2, k = 1, fitted_hmm$LL)
 
