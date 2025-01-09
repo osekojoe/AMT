@@ -9,7 +9,7 @@ library(bayesforecast)
 library(forecast)
 library(HMMpa)
 library(gridExtra)
-
+library(xtable)
 
 #----------  Set up theme
 #===============================================================================
@@ -218,8 +218,18 @@ BIC_HMM(size = nrow(hmmdata), m=n, k=2, fitted_hmm$LL)
 fit_hmm11 <- BaumWelch(hmm_model1, control = bwcontrol(maxiter = 1000))
 fit_hmm15 <- BaumWelch(hmm_model1, control = bwcontrol(maxiter = 1000))
 
-#summary(fitted_hmm)
+fit_hmm15$delta #delta
+fit_hmm15$pm # emission parameters
 
+#calculate number of params k
+N <- 20
+(totparams <- N*(N-1) + (N-1) + 2*N)
+
+# export pi to latex table
+summary(fit_hmm15)
+Pi_matrix <- summary(fit_hmm15)$Pi
+latex_code <- xtable(Pi_matrix)
+print(latex_code, type = "latex")
 
 Viterbi(hmm_BW_n) # State decoding
 fit15res <- residuals(fit_hmm15) # Residuals
@@ -304,3 +314,26 @@ dev.off()
 png("pictures/hmmb11_diagns.png", units="cm", width = 20, height = 10, res = 300)
 gridExtra::grid.arrange(diag_st11_1, diag_st11_2, diag_st11_3, ncol = 3)
 dev.off()
+
+png("pictures/hmmb11n15_diagns.png", units="cm", width = 20, height = 10, res = 300)
+gridExtra::grid.arrange(diag_st11_1, diag_st11_2, diag_st11_3,
+                        diag_st15_1, diag_st15_2, diag_st15_3, ncol = 3)
+dev.off()
+
+##### ------------------------------------------------------------------------
+# Visualize the decoded states
+states <- Viterbi(fit_hmm15)
+# Add decoded states to the dataset
+hmmdata$state <- states
+
+# Plot states
+
+ggplot(hmmdata, aes(x = hr, y = mean_power, color = as.factor(state))) +
+  geom_line() +
+  labs(title = "Power Consumption States", x = "Hour",
+       y = "Mean Power (KWh)", color = "State")
+
+ggplot(hmmdata, aes(x = hr, y = mean_power, color = as.factor(state))) +
+  geom_line() +
+  labs(title = "Power Consumption States", x = "Hour",
+       y = "Mean Power (KWh)", color = "State")
