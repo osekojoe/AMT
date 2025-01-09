@@ -8,6 +8,7 @@ library(dplyr)
 library(bayesforecast)
 library(forecast)
 library(HMMpa)
+library(gridExtra)
 
 
 #----------  Set up theme
@@ -156,9 +157,8 @@ try <- BaumWelch(hmmbs2)
 
 mean_power <- hmmdata$mean_power
 
-# Define initial model parameters
-num_states <- 15  # Change the number of states to experiment
-#init_prob <- rep(1 / num_states, num_states)  # Equal probability for initial states
+##### Define initial model parameters -------
+
 gen_Tmatrix <- function(n) {
   mat <- matrix(0.01, nrow = n, ncol = n)
   diag(mat) <- 1 - 0.01 * (n - 1)
@@ -173,66 +173,59 @@ func_delta <- function(n) {
   return (rounded)
 }
 
-#transition_matrix <- matrix(1 / num_states, nrow = num_states, ncol = num_states)  # Equal probabilities for transitions
-#emission_means <- seq(min(mean_power), max(mean_power), length.out = num_states)
-#emission_sd <- rep(sd(mean_power), num_states)
-emission_means <- runif(num_states, min = min(mean_power), max = max(mean_power))
-emission_sd <- runif(num_states, min = 0.7*sd(mean_power), max = 0.9*sd(mean_power))
-
 gen_emisparams <- function(data, n) {
   set.seed(374)
   # Generate random means and standard deviations
   emission_means <- runif(n, min = min(data), max = max(data))
-  emission_sd <- runif(n, min = 0.7 * sd(mean_power), max = 0.9 * sd(data))
+  emission_sd <- runif(n, min = 0.7 * sd(mean_power), max = sd(data))
   return(list(mean = emission_means, sd = emission_sd))
 }
 
+gen_emisparamsq <- function(data, n) {
+  # Calculate quantiles and determine means as midpoints of quantile ranges
+  quantiles <- quantile(data, probs = seq(0, 1, length.out = n + 1))
+  emission_means <- (quantiles[-1] + quantiles[-length(quantiles)]) / 2
+  
+  # Calculate standard deviations within each quantile range
+  emission_sd <- sapply(1:n, function(i) {
+    range_data <- data[data >= quantiles[i] & data <= quantiles[i + 1]]
+    if (length(range_data) > 1) {
+      sd(range_data)  # Standard deviation within the range
+    } else {
+      0.1 * sd(data)  # Small default value if insufficient data
+    }
+  })
+  
+  # Return as a named list
+  return(list(mean = emission_means, sd = emission_sd))
+}
+
+
 # Define the HMM
-n = 20
+n = 15
 hmm_model1 <- dthmm(
   x = mean_power,
   Pi = gen_Tmatrix(n),
   delta = func_delta(n),
-  pm = gen_emisparams(hmmdata$mean_power, n), #list(mean = emission_means, sd = emission_sd),
+  pm = gen_emisparamsq(hmmdata$mean_power, n), 
   distn = "norm"
 )
 
-summary(hmm_model1)
-# Fit the HMM using Baum-Welch algorithm
 fitted_hmm <- BaumWelch(hmm_model1, control = bwcontrol(maxiter = 1000))
-summary(fitted_hmm)
+AIC_HMM(logL = fitted_hmm$LL, m=n, k=2)
+BIC_HMM(size = nrow(hmmdata), m=n, k=2, fitted_hmm$LL)
 
-# Define a function to fit HMM and evaluate
-fit_hmm1 <- function(data, num_states) {
-  # Initial probabilities, transition matrix, and emission parameters
-  init_prob <- rep(1 / num_states, num_states)  # Equal probability for initial states
-  transition_matrix <- matrix(1 / num_states, nrow = num_states, ncol = num_states)  # Equal probabilities for transitions
-  emission_means <- seq(min(mean_power), max(mean_power), length.out = num_states)
-  emission_sd <- rep(sd(mean_power), num_states)
-  
-  # Define the HMM
-  hmm_model <- dthmm(x = mean_power, Pi = transition_matrix,
-    delta = init_prob, pm = list(mean = emission_means, sd = emission_sd),
-    distn = "norm"
-  )
-  
-  # Fit HMM using Baum-Welch algorithm
-  fitted_model <- BaumWelch(hmm_model)
-  
-  return(fitted_model)
-}
+fit_hmm11 <- BaumWelch(hmm_model1, control = bwcontrol(maxiter = 1000))
+fit_hmm15 <- BaumWelch(hmm_model1, control = bwcontrol(maxiter = 1000))
 
-m=15
-hmm_BW_n <- fit_hmm1(mean_power, num_states=m)
-summary(hmm_BW_n)
+#summary(fitted_hmm)
 
-AIC_HMM(logL = hmm_BW_n$LL, m=m, k=2)
-BIC_HMM(size = nrow(hmmdata), m=20, k=2, hmm_BW_n$LL)
 
 Viterbi(hmm_BW_n) # State decoding
-fit15res <- residuals(hmm_BW_n) # Residuals
+fit15res <- residuals(fit_hmm15) # Residuals
+fit11res <- residuals(fit_hmm11)
 
-#### plot residuals --------------------------------------------------------
+#### plot residuals - state 15 -------------------------------------------------------
 fit15res_df1 <- data.frame(state = rep(paste0(15, " States"), each = 1416), 
                               resid = c(fit15res),
                               time = rep(hmmdata$day_in_year, 1)) %>% as_tibble() %>%
@@ -268,35 +261,46 @@ fit15res_df1 <- data.frame(state = rep(paste0(15, " States"), each = 1416),
 
 
 #######--------------------------------
-fit_hmm_with_random_params <- function(data, num_states, mean_range = c(0, 1000), sd_range = c(1, 10)) {
-  
-  # Define initial model parameters
-  init_prob <- rep(1 / num_states, num_states)  # Equal probability for initial states
-  transition_matrix <- matrix(1 / num_states, nrow = num_states, ncol = num_states)  # Equal probabilities for transitions
-  
-  # Generate random means and standard deviations
-  emission_means <- rnorm(num_states, mean = mean(mean_range), sd = diff(mean_range) / 4)
-  emission_means <- sort(emission_means)
-  
-  emission_sd <- runif(num_states, min = sd_range[1], max = sd_range[2])
-  
-  # Define the HMM
-  hmm_model <- dthmm(
-    x = mean_power,
-    Pi = transition_matrix,
-    delta = init_prob,
-    pm = list(mean = emission_means, sd = emission_sd),
-    distn = "norm"
-  )
-  
-  # Fit the HMM using the Baum-Welch algorithm
-  fitted_hmm <- BaumWelch(hmm_model)
-  
-  # Return the fitted HMM and emission parameters
-  return(list(fitted_hmm = fitted_hmm, means = emission_means, sds = emission_sd))
-}
 
-m=5
-fit_hmm_with_random_params(data=mean_power, num_states=m)
+#### plot residuals  state 11 --------------------------------------------------------
+fit11res_df <- data.frame(state = rep(paste0(15, " States"), each = 1416), 
+                           resid = c(fit11res),
+                           time = rep(hmmdata$day_in_year, 1)) %>% as_tibble() %>%
+  mutate(state = factor(state, levels = c("11 States")))
+
+(diag_st11_1 <- fit11res_df %>% ggplot(aes(x = time, y = resid)) +
+    geom_hline(yintercept = 1.96, linetype="solid", color="gray70") +
+    geom_hline(yintercept = -1.96, linetype="solid", color="gray70") +
+    geom_hline(yintercept = 0, linetype="solid", color="gray70") +
+    geom_hline(yintercept = 2.58, linetype="solid", color="gray70") +
+    geom_hline(yintercept = -2.58, linetype="solid", color="gray70") +
+    geom_point(size = 1.5, alpha = 0.6, color = "gray50") +
+    coord_cartesian(ylim = c(-4, 4)) +
+    theme_minimal_adjstd() +
+    labs(x = NULL, y = NULL, title = NULL))
+
+(diag_st11_2 <- fit11res_df %>%
+    ggplot(aes(x = resid)) +
+    geom_histogram(aes(y = ..density..), fill = "gray50", color = "white") +
+    stat_function(fun = dnorm, 
+                  args = list(mean = mean(fit15res_df1$resid), 
+                              sd = sd(fit15res_df1$resid)), linewidth = 1) +
+    theme_minimal_adjstd() +
+    labs(x = NULL, y = NULL))
+
+(diag_st11_3 <-fit11res_df %>%
+    ggplot(aes(sample = resid)) +
+    stat_qq() +
+    geom_abline() +
+    coord_cartesian(ylim = c(-4, 4), xlim = c(-4, 4)) +
+    theme_minimal_adjstd() +
+    labs(x = NULL, y = NULL, title = NULL))
 
 
+png("pictures/hmmb15_diagns.png", units="cm", width = 20, height = 10, res = 300)
+gridExtra::grid.arrange(diag_st15_1, diag_st15_2, diag_st15_3, ncol = 3)
+dev.off()
+
+png("pictures/hmmb11_diagns.png", units="cm", width = 20, height = 10, res = 300)
+gridExtra::grid.arrange(diag_st11_1, diag_st11_2, diag_st11_3, ncol = 3)
+dev.off()
