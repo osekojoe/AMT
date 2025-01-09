@@ -149,16 +149,51 @@ fit_hmm1 <- function(data, num_states) {
   return(fitted_model)
 }
 
-m=2
+m=15
 hmm_BW_n <- fit_hmm1(mean_power, num_states=m)
 
-AIC_HMM(logL = fitted_hmm$LL, m=20, k=2)
-BIC_HMM(size = nrow(hmmdata), m=20, k=2, fitted_hmm$LL)
-Viterbi(fitted_hmm) # State decoding
-residuals(fitted_hmm) # Residuals
+AIC_HMM(logL = hmm_BW_n$LL, m=m, k=2)
+
+BIC_HMM(size = nrow(hmmdata), m=20, k=2, hmm_BW_n$LL)
+Viterbi(hmm_BW_n) # State decoding
+fit15res <- residuals(hmm_BW_n) # Residuals
+
+#### plot residuals --------------------------------------------------------
+fit15res_df1 <- data.frame(state = rep(paste0(15, " States"), each = 1416), 
+                              resid = c(fit15res),
+                              time = rep(hmmdata$day_in_year, 1)) %>% as_tibble() %>%
+  mutate(state = factor(state, levels = c("15 States")))
+
+(diag_st15_1 <- fit15res_df1 %>% ggplot(aes(x = time, y = resid)) +
+    geom_hline(yintercept = 1.96, linetype="solid", color="gray70") +
+    geom_hline(yintercept = -1.96, linetype="solid", color="gray70") +
+    geom_hline(yintercept = 0, linetype="solid", color="gray70") +
+    geom_hline(yintercept = 2.58, linetype="solid", color="gray70") +
+    geom_hline(yintercept = -2.58, linetype="solid", color="gray70") +
+    geom_point(size = 1.5, alpha = 0.6, color = "gray50") +
+    coord_cartesian(ylim = c(-4, 4)) +
+    theme_minimal() +
+    labs(x = NULL, y = NULL, title = NULL))
+
+(diag_st15_2 <- fit15res_df1 %>%
+    ggplot(aes(x = resid)) +
+    geom_histogram(aes(y = ..density..), fill = "gray50", color = "white") +
+    stat_function(fun = dnorm, 
+                  args = list(mean = mean(fit15res_df1$resid), 
+                              sd = sd(fit15res_df1$resid)), linewidth = 1) +
+    theme_minimal() +
+    labs(x = NULL, y = NULL))
+
+(diag_st15_3 <-fit15res_df1 %>%
+    ggplot(aes(sample = resid)) +
+    stat_qq() +
+    geom_abline() +
+    coord_cartesian(ylim = c(-4, 4), xlim = c(-4, 4)) +
+    theme_minimal() +
+    labs(x = NULL, y = NULL, title = NULL))
 
 
-#######---------consider hour column  --------------------------------------------------------------
+#######---------consider hour column  --------------------------------------
 
 hmmdata$hour_sin <- sin(2 * pi * hmmdata$hr / 24)
 hmmdata$hour_cos <- cos(2 * pi * hmmdata$hr / 24)
