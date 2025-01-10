@@ -326,6 +326,25 @@ states <- Viterbi(fit_hmm15)
 # Add decoded states to the dataset
 hmmdata$state <- states
 
+hmmdata <- hmmdata %>% 
+    mutate(viterbimean = case_when(
+      state == 1 ~ 19937.35,
+      state == 2 ~ 22153.18,
+      state == 3 ~ 23097.31,
+      state == 4 ~ 23225.20,
+      state == 5 ~ 25186.35,
+      state == 6 ~ 28148.73,
+      state == 7 ~ 29202.46,
+      state == 8 ~ 32373.80,
+      state == 9 ~ 32824.91,
+      state == 10 ~ 33869.36,
+      state == 11 ~ 35060.89,
+      state == 12 ~ 37207.35,
+      state == 13 ~ 37878.07,
+      state == 14 ~ 41591.11,
+      TRUE         ~ 43702.51 
+))
+
 # Plot states
 
 ggplot(hmmdata, aes(x = hr, y = mean_power, color = as.factor(state))) +
@@ -353,8 +372,9 @@ contrasting_colors <- c(
 # Plot with custom colors
 ggplot(hmmdata, aes(x = hr, y = mean_power, color = as.factor(state))) +
   geom_line() +
+  geom_point(aes(y = viterbimean), size = 5, shape = "-", color = "black") +
   scale_color_manual(values = contrasting_colors) +  # Apply custom colors
-  labs(title = "Power Consumption States", 
+  labs(title = "Hourly Power Consumption States", 
        x = "Hour", 
        y = "Mean Power (KWh)", 
        color = "State") +
@@ -386,4 +406,39 @@ ggplot(first_two_weeks, aes(x = day_in_year, y = mean_power, color = as.factor(s
   theme_minimal()
 
 
+
+
 ### -- Andrew version
+
+first_two_wks <- first_two_weeks
+
+(state_pred_15 <- first_two_wks %>% 
+    mutate(viterbimean = case_when(
+      state == 1 ~ 19937.35,
+      state == 2 ~ 22153.18,
+      state == 3 ~ 23097.31,
+      state == 4 ~ 23225.20,
+      state == 5 ~ 25186.35,
+      state == 6 ~ 28148.73,
+      state == 7 ~ 29202.46,
+      state == 8 ~ 32373.80,
+      state == 9 ~ 32824.91,
+      state == 10 ~ 33869.36,
+      state == 11 ~ 35060.89,
+      state == 12 ~ 37207.35,
+      state == 13 ~ 37878.07,
+      state == 14 ~ 41591.11,
+      TRUE         ~ 43702.51 
+    )) %>%
+    ggplot(aes(x = day_in_year)) +
+    geom_hline(aes(yintercept = viterbimean), color = "gray80", linetype = 1) +
+    geom_line(aes(y = mean_power, group = 1), color = "gray70") +
+    geom_point(aes(y = viterbimean), size = 5, shape = "-", color = "black") +
+    theme_minimal_adjstd() +
+    theme(
+      axis.text.x = element_text(size = 6, hjust = 0.3),
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor.y = element_blank(),
+    ) +
+    labs(x = "Day", y = "Mean power consumption", color = "States"))
+
