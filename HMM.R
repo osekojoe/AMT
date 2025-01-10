@@ -38,7 +38,6 @@ theme_minimal_adjstd <- function(...) {
     )
 }
 
-?element_text
 
 #===============================================================================
 
@@ -57,7 +56,7 @@ par(mfrow=c(2,2))
 # Step 3: Histogram of mean power
 #png(filename = "pictures/histogram.png", width = 400, height = 350)
 png("pictures/histogram.png", width=18, height=10, units="cm", res=300)
-ggplot(hmmdata, aes(x = mean_power)) +
+hist <- ggplot(hmmdata, aes(x = mean_power)) +
   geom_histogram(binwidth = 1000, position = "dodge", color = "white") +
   scale_color_brewer(palette = "Set1") +
   labs(title = "", x = "Mean Power (KWh)", y = "Frequency")
@@ -70,14 +69,14 @@ ggAcf(ts_data) +
 
 #png(filename = "pictures/acf.png", width = 400, height = 350)
 png("pictures/acf.png", width=18, height=10, units="cm", res=300)
-ggAcf(mean_power) +
+acf <- ggAcf(mean_power) +
   labs(title = "")
 dev.off()
 
 # Step 5: Time-series plot
 #png(filename = "pictures/comptimeseries.png", width = 400, height = 400)
 png("pictures/comptimeseries.png", width=18, height=10, units="cm", res=300)
-ggplot(hmmdata, aes(x = as.POSIXct(paste(day, hr, sep = " "),
+gentseries <- ggplot(hmmdata, aes(x = as.POSIXct(paste(day, hr, sep = " "),
                                    format = "%Y-%m-%d %H"), y = mean_power)) +
   geom_line(color = "blue") +
   labs(title = "", x = "Time", y = "Mean Power (KWh)") +
@@ -89,7 +88,7 @@ dev.off()
 # Time-series plot zoomed in for the first 14 days
 #png(filename = "pictures/zoomtimeseries.png", width = 400, height = 400)
 png("pictures/zoomtimeseries.png", width=18, height=10, units="cm", res=300)
-ggplot(
+ttseries <- ggplot(
   hmmdata %>%
     filter(day >= as.Date("2017-01-01") & day <= as.Date("2017-01-14")), 
   aes(x = as.POSIXct(paste(day, hr, sep = " "), 
@@ -112,6 +111,9 @@ ggplot(hmmdata, aes(x = as.factor(hr), y = mean_power)) +
   theme_minimal()
 dev.off()
 
+png("pictures/eda.png", units="cm", width = 20, height = 10, res = 300)
+gridExtra::grid.arrange(hist, acf, gentseries, ttseries, ncol = 2)
+dev.off()
 
 ## analysis  ----------------------------------------------
 
@@ -173,13 +175,13 @@ func_delta <- function(n) {
   return (rounded)
 }
 
-gen_emisparams <- function(data, n) {
-  set.seed(374)
-  # Generate random means and standard deviations
-  emission_means <- runif(n, min = min(data), max = max(data))
-  emission_sd <- runif(n, min = 0.7 * sd(mean_power), max = sd(data))
-  return(list(mean = emission_means, sd = emission_sd))
-}
+# gen_emisparams <- function(data, n) {
+#   set.seed(374)
+#   # Generate random means and standard deviations
+#   emission_means <- runif(n, min = min(data), max = max(data))
+#   emission_sd <- runif(n, min = 0.7 * sd(mean_power), max = sd(data))
+#   return(list(mean = emission_means, sd = emission_sd))
+# }
 
 gen_emisparamsq <- function(data, n) {
   # Calculate quantiles and determine means as midpoints of quantile ranges
@@ -370,15 +372,20 @@ contrasting_colors <- c(
 )
 
 # Plot with custom colors
-ggplot(hmmdata, aes(x = hr, y = mean_power, color = as.factor(state))) +
+hourly <- ggplot(hmmdata, aes(x = hr, y = mean_power, color = as.factor(state))) +
   geom_line() +
   geom_point(aes(y = viterbimean), size = 5, shape = "-", color = "black") +
   scale_color_manual(values = contrasting_colors) +  # Apply custom colors
-  labs(title = "Hourly Power Consumption States", 
+  labs(title = "States (Hourly)", 
        x = "Hour", 
        y = "Mean Power (KWh)", 
        color = "State") +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    legend.text = element_text(size = 6),  # Reduce legend text size
+    legend.title = element_text(size = 8), # Reduce legend title size
+    legend.key.size = unit(0.4, "cm")      # Reduce legend key size
+  )
 
 ## -------------------------------------------------------------------------
 ## entire
@@ -396,6 +403,8 @@ first_two_weeks <- hmmdata %>%
 # Plot the filtered data
 ggplot(first_two_weeks, aes(x = day_in_year, y = mean_power, color = as.factor(state))) +
   geom_line() +
+  geom_point(aes(y = viterbimean), size = 5, shape = "-", color = "black") +
+  #geom_line(aes(y = mean_power, group = 1), color = "gray70") +
   scale_color_manual(values = contrasting_colors) +  # Apply custom colors
   labs(
     title = "Power Consumption States (First Two Weeks)", 
@@ -403,12 +412,51 @@ ggplot(first_two_weeks, aes(x = day_in_year, y = mean_power, color = as.factor(s
     y = "Mean Power (KWh)", 
     color = "State"
   ) +
-  theme_minimal()
+  theme(
+    axis.text.x = element_text(size = 6, hjust = 0.3),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+  ) 
+
+###--------------- only day and month
+first_two_weeks <- hmmdata %>%
+  filter(as.Date(day_in_year, format = "%d/%m/%Y") <= as.Date("14/01/2017", format = "%d/%m/%Y")) %>%
+  mutate(day_in_year = as.Date(day_in_year, format = "%d/%m/%Y"))
+
+# Plot the filtered data
+weekly <- ggplot(first_two_weeks, aes(x = day_in_year, y = mean_power, color = as.factor(state))) +
+  geom_line() +
+  geom_point(aes(y = viterbimean), size = 5, shape = "-", color = "black") +
+  geom_line(aes(y = mean_power, group = 1), color = "gray70") +
+  scale_color_manual(values = contrasting_colors) +  # Apply custom colors
+  scale_x_date(
+    date_labels = "%d/%m",  # Show only day and month
+    date_breaks = "1 day"   # Tick marks for each day
+  ) +
+  labs(
+    title = "States (First Two Weeks)", 
+    x = "Day", 
+    y = "Mean Power (KWh)", 
+    color = "State"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 6, angle = 45, hjust = 1),  # Slanted labels
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    legend.text = element_text(size = 6),  # Reduce legend text size
+    legend.title = element_text(size = 8), # Reduce legend title size
+    legend.key.size = unit(0.4, "cm")      # Reduce legend key size
+  )
 
 
+png("pictures/combhourweek_decod.png", units="cm", width = 25, height = 19, res = 300)
+gridExtra::grid.arrange(hourly, weekly, 
+                        hourlyPK, weeklyPK,
+                        hourlyOP, weeklyOP,
+                        ncol = 2)
+dev.off()
 
-
-### -- Andrew version
+### -- Andrew version -------------------------------
 
 first_two_wks <- first_two_weeks
 
