@@ -334,7 +334,12 @@ hourlyPK <- ggplot(peak_data, aes(x = hr, y = mean_power, color = as.factor(stat
        x = "Hour", 
        y = "Mean Power (KWh)", 
        color = "State") +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    legend.text = element_text(size = 6),  # Reduce legend text size
+    legend.title = element_text(size = 8), # Reduce legend title size
+    legend.key.size = unit(0.4, "cm")      # Reduce legend key size
+  )
 
 ## -------------------------------------------------------------------------
 ## entire
@@ -355,7 +360,7 @@ first_two_weeksPK <- peak_data %>%
   filter(as.Date(day_in_year, format = "%d/%m/%Y") <= as.Date("14/01/2017", format = "%d/%m/%Y"))
 
 # Plot the filtered data
-ggplot(first_two_weeksPK, aes(x = day_in_year, y = mean_power, color = as.factor(state))) +
+weeklyPK <- ggplot(first_two_weeksPK, aes(x = day_in_year, y = mean_power, color = as.factor(state))) +
   geom_line() +
   geom_point(aes(y = viterbimean), size = 5, shape = "-", color = "black") +
   scale_color_manual(values = contrasting_colors) +  # Apply custom colors
@@ -364,7 +369,7 @@ ggplot(first_two_weeksPK, aes(x = day_in_year, y = mean_power, color = as.factor
     date_breaks = "1 day"   # Tick marks for each day
   ) +
   labs(
-    title = "Power Consumption States (First Two Weeks)", 
+    title = "States (First Two Weeks)", 
     x = "Day", 
     y = "Mean Power (KWh)", 
     color = "State"
@@ -373,6 +378,9 @@ ggplot(first_two_weeksPK, aes(x = day_in_year, y = mean_power, color = as.factor
     axis.text.x = element_text(size = 6, hjust = 0.3),
     panel.grid.major.y = element_blank(),
     panel.grid.minor.y = element_blank(),
+    legend.text = element_text(size = 6),  # Reduce legend text size
+    legend.title = element_text(size = 8), # Reduce legend title size
+    legend.key.size = unit(0.4, "cm")      # Reduce legend key size
   ) 
 
 

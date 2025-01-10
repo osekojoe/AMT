@@ -490,3 +490,29 @@ first_two_wks <- first_two_weeks
     ) +
     labs(x = "Day", y = "Mean power consumption", color = "States"))
 
+
+# Calculate k (number of parameters in the HMM)
+compute_k <- function(num_states, emission_params) {
+  # num_states: Number of hidden states (S)
+  # emission_params: Number of parameters in the emission distribution (E)
+  # Transition probabilities: S * (S - 1)
+  transition_params <- num_states * (num_states - 1)
+    # Emission parameters: S * E
+  emission_params_total <- num_states * emission_params
+  # Initial state probabilities: S - 1
+  initial_params <- num_states - 1
+  # Total number of parameters
+  total_params <- transition_params + emission_params_total + initial_params
+  
+  return(total_params)
+}
+
+# Number of states (S)
+num_states <- 18
+
+# Number of emission parameters (E) for Gaussian (mean and variance -> E = 2)
+# For Binomial, E = 1 (the parameter is p, the success probability).
+emission_params <- 2
+
+# Calculate k
+(k <- compute_k(num_states, emission_params))

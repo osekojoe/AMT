@@ -353,11 +353,19 @@ hourlyOP <- ggplot(offpeak_data, aes(x = hr, y = mean_power, color = as.factor(s
   geom_line() +
   geom_point(aes(y = viterbimean), size = 5, shape = "-", color = "black") +
   scale_color_manual(values = contrasting_colors) +  # Apply custom colors
-  labs(title = "Hourly Power Consumption States", 
-       x = "Hour", 
-       y = "Mean Power (KWh)", 
-       color = "State") +
-  theme_minimal()
+  labs(
+    title = "States (Hourly)", 
+    x = "Hour", 
+    y = "Mean Power (KWh)", 
+    color = "State"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.text = element_text(size = 6),  # Reduce legend text size
+    legend.title = element_text(size = 8), # Reduce legend title size
+    legend.key.size = unit(0.4, "cm")      # Reduce legend key size
+  )
+
 
 ## -------------------------------------------------------------------------
 ## entire
@@ -378,8 +386,9 @@ first_two_weeksOP <- offpeak_data %>%
   filter(as.Date(day_in_year, format = "%d/%m/%Y") <= as.Date("14/01/2017", format = "%d/%m/%Y"))
 
 # Plot the filtered data
-ggplot(first_two_weeksOP, aes(x = day_in_year, y = mean_power, color = as.factor(state))) +
+weeklyOP <- ggplot(first_two_weeksOP, aes(x = day_in_year, y = mean_power, color = as.factor(state))) +
   geom_line() +
+  geom_point(aes(y = viterbimean), size = 5, shape = "-", color = "black") +
   scale_color_manual(values = contrasting_colors) +  # Apply custom colors
   labs(
     title = "States (First Two Weeks)", 
@@ -391,6 +400,9 @@ ggplot(first_two_weeksOP, aes(x = day_in_year, y = mean_power, color = as.factor
     axis.text.x = element_text(size = 6, hjust = 0.3),
     panel.grid.major.y = element_blank(),
     panel.grid.minor.y = element_blank(),
+    legend.text = element_text(size = 6),  # Reduce legend text size
+    legend.title = element_text(size = 8), # Reduce legend title size
+    legend.key.size = unit(0.4, "cm")      # Reduce legend key size
   ) 
 
 
