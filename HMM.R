@@ -335,5 +335,55 @@ ggplot(hmmdata, aes(x = hr, y = mean_power, color = as.factor(state))) +
 
 ggplot(hmmdata, aes(x = hr, y = mean_power, color = as.factor(state))) +
   geom_line() +
-  labs(title = "Power Consumption States", x = "Hour",
+  scale_color_brewer(palette = "Set3") +  # Use a predefined palette
+  labs(title = "Power Consumption States", 
+       x = "Hour", 
+       y = "Mean Power (KWh)", 
+       color = "State") +
+  theme_minimal()
+
+# Using a custom color palette with contrasting colors ------------------
+contrasting_colors <- c(
+  "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00",
+  "#FFFF33", "#A65628", "#F781BF", "#999999", "#66C2A5",
+  "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F",
+  "#E5C494", "#B3B3B3", "#8DD3C7", "#FB8072", "#80B1D3"
+)
+
+# Plot with custom colors
+ggplot(hmmdata, aes(x = hr, y = mean_power, color = as.factor(state))) +
+  geom_line() +
+  scale_color_manual(values = contrasting_colors) +  # Apply custom colors
+  labs(title = "Power Consumption States", 
+       x = "Hour", 
+       y = "Mean Power (KWh)", 
+       color = "State") +
+  theme_minimal()
+
+## -------------------------------------------------------------------------
+## entire
+ggplot(hmmdata, aes(x = day_in_year, y = mean_power, color = as.factor(state))) +
+  geom_line() +
+  labs(title = "Power Consumption States", x = "Day",
        y = "Mean Power (KWh)", color = "State")
+
+
+
+# Filter the data for the first 14 days
+first_two_weeks <- hmmdata %>%
+  filter(as.Date(day_in_year, format = "%d/%m/%Y") <= as.Date("14/01/2017", format = "%d/%m/%Y"))
+
+# Plot the filtered data
+ggplot(first_two_weeks, aes(x = day_in_year, y = mean_power, color = as.factor(state))) +
+  geom_line() +
+  scale_color_manual(values = contrasting_colors) +  # Apply custom colors
+  labs(
+    title = "Power Consumption States (First Two Weeks)", 
+    x = "Day", 
+    y = "Mean Power (KWh)", 
+    color = "State"
+  ) +
+  theme_minimal()
+
+
+### -- Andrew version
